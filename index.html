@@ -23,10 +23,10 @@
                     <label for="questions-per-subject">出題範囲:</label>
                     <select id="questions-per-subject">
                         <option value="1">1教科1問ずつ</option>
-                        <option value="3" selected>1教科3問ずつ</option>
+                        <option value="3">1教科3問ずつ</option>
                         <option value="5">1教科5問ずつ</option>
                         <option value="10">1教科10問ずつ</option>
-                        <option value="all">すべての問題</option>
+                        <option value="all" selected>すべての問題</option>
                     </select>
                 </div>
 
@@ -39,7 +39,7 @@
                 <div class="config-item">
                     <label>
                         <input type="checkbox" id="randomize-choices" disabled>
-                        選択肢の表示順をランダム化
+                        <s>選択肢をランダムに表示 (利用不可)</s>
                     </label>
                 </div>
 
@@ -66,16 +66,19 @@
             <div class="progress-bar">
                 <div id="progress" class="progress"></div>
             </div>
-            
+            <div class="quiz-status">
+                <span id="timer" class="timer">00:00</span><br>
+                <span id="remaining-time" class="remaining-time" style="display: none;">残り予測: 00:00</span><br>
+                <span id="progress-detail" class="progress-detail">1問目 / 10問中 (10%)</span>
+            </div>
             <div class="question-info">
                 <span id="question-number">問題 1</span>
                 <span id="total-questions">/ 7536</span>
                 <span id="current-score" class="current-score">JMMLU: 0</span>
             </div>
-
             <div id="subject" class="subject"></div>
             <div id="question" class="question"></div>
-
+            <div id="llm-output" class="llm-output" style="display: none;"></div>
             <div id="choices" class="choices">
                 <button class="choice" data-choice="A"></button>
                 <button class="choice" data-choice="B"></button>
@@ -91,7 +94,7 @@
                 <span id="score">0</span> / <span id="total">0</span> 問正解
             </div>
             <div class="percentage">
-                暫定正答率: <span id="percentage">0</span>%
+                正答率: <span id="percentage">0</span>%
             </div>
             <div id="result-details" class="result-details"></div>
             <button id="restart-btn" class="btn btn-primary">もう一度挑戦</button>

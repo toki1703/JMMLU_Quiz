@@ -1,6 +1,45 @@
 class QuizApp {
+    benchmarkModeEnabled = false; // ベンチマークモード（API自動選択）
+    selectAllSubjects() {
+        const checkboxes = this.subjectCheckboxesEl.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(checkbox => checkbox.checked = true);
+        this.updateQuestionCount();
+    }
+
+    deselectAllSubjects() {
+        const checkboxes = this.subjectCheckboxesEl.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(checkbox => checkbox.checked = false);
+        this.updateQuestionCount();
+    }
+    populateSubjectCheckboxes() {
+        this.subjectCheckboxesEl.innerHTML = '';
+        Object.keys(this.subjects).forEach(subjectName => {
+            const checkboxDiv = document.createElement('div');
+            checkboxDiv.className = 'subject-checkbox';
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = `subject-${subjectName}`;
+            checkbox.value = subjectName;
+            checkbox.checked = true; // Default: all selected
+            // Add event listener for question count update
+            checkbox.addEventListener('change', () => this.updateQuestionCount());
+            const label = document.createElement('label');
+            label.htmlFor = `subject-${subjectName}`;
+            label.textContent = subjectName;
+            checkboxDiv.appendChild(checkbox);
+            checkboxDiv.appendChild(label);
+            this.subjectCheckboxesEl.appendChild(checkboxDiv);
+        });
+    }
     constructor() {
         this.questions = [];
+        // 効果音ファイルの読み込み
+        this.correctSound = new Audio('sounds/クイズ正解1.mp3');
+        this.incorrectSound = new Audio('sounds/クイズ不正解1.mp3');
+        // シンキングタイムBGM
+        this.thinkingBgm = new Audio('sounds/シンキングタイムループ音源.mp3');
+        this.thinkingBgm.loop = true;
+        this.thinkingBgm.volume = 0.2;
         this.currentQuestionIndex = 0;
         this.userAnswers = [];
         this.score = 0;
@@ -10,6 +49,10 @@ class QuizApp {
             randomizeChoices: true,
             selectedSubjects: []
         };
+        // Auto回答・続行モード
+        this.autoAnswerEnabled = true;
+        this.autoContinueEnabled = true;
+        this.autoAnswerTimeout = null;
         this.subjects = {
             '専門医学': 'professional_medicine',
             '専門心理学': 'professional_psychology',
@@ -106,6 +149,9 @@ class QuizApp {
         this.deselectAllBtnEl = document.getElementById('deselect-all');
         this.startQuizBtnEl = document.getElementById('start-quiz');
         this.questionCountEl = document.getElementById('question-count');
+            // タイマー・進捗詳細
+            this.timerEl = document.getElementById('timer');
+            this.progressDetailEl = document.getElementById('progress-detail');
 
         // Add event listeners
         this.restartBtnEl.addEventListener('click', () => this.restart());
@@ -124,55 +170,18 @@ class QuizApp {
         this.showStart();
         this.populateSubjectCheckboxes();
         this.config.selectedSubjects = Object.keys(this.subjects); // Default: all subjects selected
-        this.updateQuestionCount();
     }
 
-    populateSubjectCheckboxes() {
-        this.subjectCheckboxesEl.innerHTML = '';
+
         
-        Object.keys(this.subjects).forEach(subjectName => {
-            const checkboxDiv = document.createElement('div');
-            checkboxDiv.className = 'subject-checkbox';
-            
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.id = `subject-${subjectName}`;
-            checkbox.value = subjectName;
-            checkbox.checked = true; // Default: all selected
-            
-            // Add event listener for question count update
-            checkbox.addEventListener('change', () => this.updateQuestionCount());
-            
-            const label = document.createElement('label');
-            label.htmlFor = `subject-${subjectName}`;
-            label.textContent = subjectName;
-            
-            checkboxDiv.appendChild(checkbox);
-            checkboxDiv.appendChild(label);
-            this.subjectCheckboxesEl.appendChild(checkboxDiv);
-        });
-    }
-
-    selectAllSubjects() {
-        const checkboxes = this.subjectCheckboxesEl.querySelectorAll('input[type="checkbox"]');
-        checkboxes.forEach(checkbox => checkbox.checked = true);
-    }
-
-    deselectAllSubjects() {
-        const checkboxes = this.subjectCheckboxesEl.querySelectorAll('input[type="checkbox"]');
-        checkboxes.forEach(checkbox => checkbox.checked = false);
-    }
-
     updateQuestionCount() {
         const selectedValue = this.questionsPerSubjectEl.value;
         const checkboxes = this.subjectCheckboxesEl.querySelectorAll('input[type="checkbox"]:checked');
         const selectedSubjects = Array.from(checkboxes).map(cb => cb.value);
-        
         if (selectedSubjects.length === 0) {
             this.questionCountEl.textContent = '0';
             return;
         }
-        
         if (selectedValue === 'all') {
             // すべての問題の場合は概算値を表示
             const estimatedTotal = this.getEstimatedTotalQuestions(selectedSubjects);
@@ -425,14 +434,18 @@ class QuizApp {
     }
 
     initializeQuiz() {
-        this.currentQuestionIndex = 0;
-        this.userAnswers = [];
-        this.score = 0;
-        this.isAnswered = false;
-        
-        this.totalQuestionsEl.textContent = `/ ${this.questions.length}`;
-        this.showQuiz();
-        this.displayQuestion();
+    this.currentQuestionIndex = 0;
+    this.userAnswers = [];
+    this.score = 0;
+    this.isAnswered = false;
+    this.totalQuestionsEl.textContent = `/ ${this.questions.length}`;
+    this.showQuiz();
+    // タイマー開始
+    this.startTime = Date.now();
+    if (this.timerInterval) clearInterval(this.timerInterval);
+    this.updateTimer();
+    this.timerInterval = setInterval(() => this.updateTimer(), 1000);
+    this.displayQuestion();
     }
 
     displayQuestion() {
@@ -453,6 +466,8 @@ class QuizApp {
         
         // Display question
         this.questionEl.textContent = question.question;
+            // 進捗詳細表示の更新
+            this.updateProgressDetail();
         
         // Prepare choices for display
         let choiceOrder = ['A', 'B', 'C', 'D'];
@@ -486,15 +501,122 @@ class QuizApp {
         });
         
         this.isAnswered = false;
+        // ベンチマークモード（API自動選択）
+        if (this.benchmarkModeEnabled) {
+            // APIに問題文と選択肢を送信
+            const q = this.questions[this.currentQuestionIndex];
+            const choicesText = ['A', 'B', 'C', 'D'].map(k => `${k}) ${q.choices[k]}`).join('\n');
+            // prompt = `問題: ${q.question}\n選択肢:\n${choicesText}\n最も適切な選択肢の記号（A/B/C/D）だけを返してください。例えば、選択肢Aが正解なら「A」とだけ答えてください。`;
+           let prompt =  `以下の多肢選択問題に答えてください。
+
+**フェーズ1：最初の回答**
+
+質問文と選択肢を読み、最も妥当だと思われる答えを一つ選んでください。
+
+**質問:** ${q.question}
+${choicesText}
+
+**回答:** [モデルが最初の答えを出力]
+
+**フェーズ2：自己評価と最終回答**
+
+あなたがフェーズ1で出した回答について、本当に正しいか再検討してください。
+
+1.  あなたの最初の回答がなぜ正しいと考えたのか、その理由を説明してください。
+2.  他の選択肢がなぜ間違っているのか、その理由を説明してください。
+3.  もし、再検討の結果、最初の回答が間違っていたと判断した場合は、新しい回答とその根拠を提示してください。
+4.  最終的な回答と、その根拠を簡潔にまとめてください。
+`;
+            prompt =  `以下の多肢選択問題に答えてください。
+
+**ルール:**
+
+-   まず、簡潔な思考プロセスを「**思考**」という見出しの下に記述してください。
+-   次に、最終的な答えを「**答え**」という見出しの下に、選択肢の文字（例：A）のみで記述してください。
+-   余計な説明は不要です。
+
+**質問:** ${q.question}
+${choicesText}`;
+            const llmOutputEl = document.getElementById('llm-output');
+            if (llmOutputEl) llmOutputEl.textContent = '';
+            fetch('https://chat.toki1703.net/api/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' ,'Authorization': 'Bearer sk-135b9377c2524f878a2b59d2cb75b7fa'},
+                body: JSON.stringify({stream: true,model:"gemma3:270m", messages: [{ role: 'user', content: prompt }] })
+            })
+            .then(async res => {
+                if (!res.body) throw new Error('No response body');
+                const reader = res.body.getReader();
+                let received = '';
+                let answer = '';
+                let done = false;
+                while (!done) {
+                    const { value, done: doneReading } = await reader.read();
+                    done = doneReading;
+                    if (value) {
+                        const chunk = new TextDecoder().decode(value);
+                        // chunkは複数行の可能性あり
+                        const lines = chunk.split(/\r?\n/);
+                        for (const line of lines) {
+                            if (line.startsWith('data:')) {
+                                const jsonText = line.slice(5).trim();
+                                if (jsonText === '[DONE]') continue;
+                                try {
+                                    const obj = JSON.parse(jsonText);
+                                    if (obj.choices && obj.choices[0] && obj.choices[0].delta && obj.choices[0].delta.content) {
+                                        const content = obj.choices[0].delta.content;
+                                        received += content;
+                                        if (llmOutputEl) llmOutputEl.textContent += content;
+                                    }
+                                } catch(e) {}
+                            }
+                        }
+                    }
+                }
+                // 最終的な選択肢記号を抽出
+                answer = received.trim().toUpperCase().replace(/[^ABCD]/g, '');
+                let idx = ['A', 'B', 'C', 'D'].indexOf(answer);
+                if (idx === -1) {
+                    // 1文字目だけで判定
+                    idx = ['A', 'B', 'C', 'D'].indexOf(answer[0]);
+                }
+                const choiceButtons = this.choicesEl.querySelectorAll('.choice');
+                if (idx >= 0) {
+                    const originalKey = choiceOrder[idx];
+                    this.selectAnswer(originalKey, choiceButtons[idx]);
+                } else {
+                    // 不明な返答ならランダム
+                    const randomIdx = Math.floor(Math.random() * 4);
+                    const originalKey = choiceOrder[randomIdx];
+                    this.selectAnswer(originalKey, choiceButtons[randomIdx]);
+                }
+            })
+            .catch(() => {
+                // 通信エラー時はランダム
+                const randomIdx = Math.floor(Math.random() * 4);
+                const choiceButtons = this.choicesEl.querySelectorAll('.choice');
+                const originalKey = choiceOrder[randomIdx];
+                this.selectAnswer(originalKey, choiceButtons[randomIdx]);
+            });
+            return;
+        }
     }
 
     selectAnswer(selectedChoice, buttonEl) {
         if (this.isAnswered) return;
-        
         this.isAnswered = true;
         const question = this.questions[this.currentQuestionIndex];
         const isCorrect = selectedChoice === question.correct;
-        
+
+        // 効果音再生
+        if (isCorrect) {
+            this.correctSound.currentTime = 0;
+            this.correctSound.play();
+        } else {
+            this.incorrectSound.currentTime = 0;
+            this.incorrectSound.play();
+        }
+
         // Store user answer
         this.userAnswers.push({
             question: question.question,
@@ -503,34 +625,39 @@ class QuizApp {
             isCorrect: isCorrect,
             choices: question.choices
         });
-        
+
         if (isCorrect) {
             this.score++;
         }
-        
+
         // Show correct/incorrect styling
         const choiceButtons = this.choicesEl.querySelectorAll('.choice');
         choiceButtons.forEach((button, index) => {
             button.disabled = true;
-            
             // Get the original choice key for this button position
             const displayKey = String.fromCharCode(65 + index); // A, B, C, D (display position)
             const originalKey = question.choiceMapping[displayKey]; // Original choice key
-            
             if (originalKey === question.correct) {
                 button.classList.add('correct');
             } else if (originalKey === selectedChoice && !isCorrect) {
                 button.classList.add('incorrect');
             }
         });
-        
+
         // Update current score after answer
         this.updateCurrentScore();
-        
-        // Auto advance to next question or show results
-        setTimeout(() => {
-            this.nextQuestion();
-        }, 2000);
+
+        // 続行モードの場合、自動で次の問題へ
+        if (this.autoContinueEnabled) {
+            setTimeout(() => {
+                this.nextQuestion();
+            }, 1000); // 1秒後に自動で次の問題
+        } else {
+            // 通常は2秒後に次の問題
+            setTimeout(() => {
+                this.nextQuestion();
+            }, 2000);
+        }
     }
 
     nextQuestion() {
@@ -545,6 +672,16 @@ class QuizApp {
 
     showResults() {
         this.showResult();
+        // タイマー停止
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+            this.timerInterval = null;
+        }
+        // 経過時間表示（最終値）
+        if (this.timerEl && this.startTime) {
+            const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
+            this.timerEl.textContent = this.formatTime(elapsed);
+        }
         
         // Display score
         this.scoreEl.textContent = this.score;
@@ -693,6 +830,11 @@ class QuizApp {
         this.quizContainerEl.style.display = 'block';
         this.resultContainerEl.style.display = 'none';
         this.errorContainerEl.style.display = 'none';
+        // シンキングタイムBGM再生
+        if (this.thinkingBgm.paused) {
+            this.thinkingBgm.currentTime = 0;
+            this.thinkingBgm.play();
+        }
     }
 
     showResult() {
@@ -700,6 +842,11 @@ class QuizApp {
         this.quizContainerEl.style.display = 'none';
         this.resultContainerEl.style.display = 'block';
         this.errorContainerEl.style.display = 'none';
+        // シンキングタイムBGM停止
+        if (!this.thinkingBgm.paused) {
+            this.thinkingBgm.pause();
+            this.thinkingBgm.currentTime = 0;
+        }
     }
 
     showError(message) {
@@ -708,6 +855,68 @@ class QuizApp {
         this.resultContainerEl.style.display = 'none';
         this.errorContainerEl.style.display = 'block';
         this.errorMessageEl.textContent = message;
+    }
+
+    // タイマー更新
+    updateTimer() {
+        if (!this.timerEl || !this.startTime) return;
+        const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
+        this.timerEl.textContent = this.formatTime(elapsed);
+    // 残り予測時間の計算・表示
+    this.updateRemainingTime(elapsed);
+    }
+
+    // 秒数をmm:ss形式に変換
+    formatTime(sec) {
+        const m = String(Math.floor(sec / 60)).padStart(2, '0');
+        const s = String(sec % 60).padStart(2, '0');
+        return `${m}:${s}`;
+    }
+
+    // 残り予測時間の計算・表示
+    updateRemainingTime(elapsedSec) {
+        if (!this.remainingTimeEl) return;
+        const answered = this.currentQuestionIndex + 1;
+        const total = this.questions.length;
+        const remaining = total - answered;
+        let avg = 0;
+        if (answered > 0) {
+            avg = elapsedSec / answered;
+        }
+        const predicted = Math.round(avg * remaining);
+        this.remainingTimeEl.textContent = `残り予測: 約${this.formatHumanTime(predicted)}`;
+    }
+
+    // 秒数を「日・時間・分・秒」表記に変換（最適な単位で丸めて表示）
+    formatHumanTime(sec) {
+        if (sec <= 0) return '0秒';
+        const days = Math.floor(sec / 86400);
+        const hours = Math.floor((sec % 86400) / 3600);
+        const minutes = Math.floor((sec % 3600) / 60);
+        const seconds = sec % 60;
+        let result = '';
+        if (days > 0) {
+            result += `${days}日`;
+            if (hours > 0) result += `${hours}時間`;
+        } else if (hours > 0) {
+            result += `${hours}時間`;
+            if (minutes > 0) result += `${minutes}分`;
+        } else if (minutes > 0) {
+            result += `${minutes}分`;
+            if (seconds > 0) result += `${seconds}秒`;
+        } else {
+            result += `${seconds}秒`;
+        }
+        return result;
+    }
+
+    // 進捗詳細表示の更新
+    updateProgressDetail() {
+        if (!this.progressDetailEl) return;
+        const current = this.currentQuestionIndex + 1;
+        const total = this.questions.length;
+        const percent = total > 0 ? Math.round((current / total) * 100) : 0;
+        this.progressDetailEl.textContent = `${current}問目 / ${total}問中 (${percent}%)`;
     }
 }
 
