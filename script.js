@@ -152,6 +152,8 @@ class QuizApp {
             // タイマー・進捗詳細
             this.timerEl = document.getElementById('timer');
             this.progressDetailEl = document.getElementById('progress-detail');
+            this.paceEl = document.getElementById('pace');
+            this.remainingTimeEl = document.getElementById('remaining-time');
 
         // Add event listeners
         this.restartBtnEl.addEventListener('click', () => this.restart());
@@ -882,18 +884,37 @@ ${choicesText}`;
         return `${m}:${s}`;
     }
 
-    // 残り予測時間の計算・表示
+    // 進行ペース・残り予測時間・完了予定時刻の計算・表示
     updateRemainingTime(elapsedSec) {
         if (!this.remainingTimeEl) return;
-        const answered = this.currentQuestionIndex + 1;
+        const answered = this.userAnswers.length;
         const total = this.questions.length;
         const remaining = total - answered;
-        let avg = 0;
-        if (answered > 0) {
-            avg = elapsedSec / answered;
+
+        if (answered === 0 || elapsedSec === 0) {
+            if (this.paceEl) this.paceEl.textContent = 'ペース: 計測中...';
+            this.remainingTimeEl.textContent = '残り予測: 計測中...';
+            return;
         }
+
+        // ペース（1問あたりの平均秒数と、1分あたりの問題数）
+        const avg = elapsedSec / answered;
+        const perMinute = 60 / avg;
+        if (this.paceEl) {
+            this.paceEl.textContent = `ペース: ${avg.toFixed(1)}秒/問 (${perMinute.toFixed(1)}問/分)`;
+        }
+
+        // 残り予測時間と完了予定時刻
         const predicted = Math.round(avg * remaining);
-        this.remainingTimeEl.textContent = `残り予測: 約${this.formatHumanTime(predicted)}`;
+        const eta = new Date(Date.now() + predicted * 1000);
+        const hh = String(eta.getHours()).padStart(2, '0');
+        const mm = String(eta.getMinutes()).padStart(2, '0');
+        const now = new Date();
+        const sameDay = eta.getFullYear() === now.getFullYear()
+            && eta.getMonth() === now.getMonth()
+            && eta.getDate() === now.getDate();
+        const etaText = sameDay ? `${hh}:${mm}` : `${eta.getMonth() + 1}/${eta.getDate()} ${hh}:${mm}`;
+        this.remainingTimeEl.textContent = `残り約${this.formatHumanTime(predicted)} (完了予定 ${etaText})`;
     }
 
     // 秒数を「日・時間・分・秒」表記に変換（最適な単位で丸めて表示）
