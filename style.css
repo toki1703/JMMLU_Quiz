@@ -53,12 +53,35 @@ body {
 
 /* ===== Header ===== */
 header {
+    position: relative;
     background: var(--primary);
     color: #fff;
     text-align: center;
     padding: 24px 20px;
     border-radius: var(--radius);
     box-shadow: var(--shadow);
+}
+
+.settings-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .15);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background .15s;
+    touch-action: manipulation;
+}
+
+.settings-btn:hover {
+    background: rgba(255, 255, 255, .28);
 }
 
 header h1 {
@@ -586,6 +609,174 @@ header h5 {
     color: var(--txt2);
     margin-bottom: 24px;
     font-size: 1rem;
+}
+
+/* ===== Settings panel ===== */
+.settings-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: rgba(0, 0, 0, .45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.settings-panel {
+    background: var(--bg1);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    box-shadow: var(--shadow);
+    width: 100%;
+    max-width: 440px;
+    max-height: calc(100vh - 40px);
+    max-height: calc(100dvh - 40px);
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.settings-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.settings-head h2 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--txt1);
+}
+
+.settings-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    color: var(--txt3);
+    font-size: 18px;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+}
+
+.settings-close:hover {
+    background: var(--bg2);
+    color: var(--txt1);
+}
+
+.switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    cursor: pointer;
+    padding: 4px 0 16px;
+}
+
+.switch-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.switch-label {
+    font-weight: 500;
+    color: var(--txt1);
+    font-size: 0.95rem;
+}
+
+.switch-desc {
+    font-size: 0.78rem;
+    color: var(--txt3);
+    line-height: 1.5;
+}
+
+/* MD3風スイッチ */
+.switch {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 50px;
+    height: 30px;
+    border-radius: 999px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    position: relative;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background .15s, border-color .15s;
+    margin: 0;
+}
+
+.switch::after {
+    content: '';
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--border2);
+    transition: left .15s, background .15s;
+}
+
+.switch:checked {
+    background: var(--primary);
+    border-color: var(--primary);
+}
+
+.switch:checked::after {
+    left: 24px;
+    background: #fff;
+}
+
+.benchmark-config {
+    border-top: 1px solid var(--bg3);
+    padding-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.benchmark-config.is-hidden {
+    display: none;
+}
+
+.settings-field label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--txt2);
+}
+
+.settings-field input {
+    width: 100%;
+    height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 16px; /* iOSの自動ズーム防止 */
+    color: var(--txt1);
+    background: var(--bg1);
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+}
+
+.settings-field input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-dim);
+}
+
+.settings-note {
+    font-size: 0.75rem;
+    color: var(--txt3);
+    line-height: 1.6;
 }
 
 /* ===== Mobile ===== */

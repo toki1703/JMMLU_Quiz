@@ -112,8 +112,58 @@ class QuizApp {
             'ウイルス学': 'virology'
         };
         
+        this.settings = this.loadSettings();
+        this.benchmarkModeEnabled = this.settings.benchmarkMode;
+
         this.initializeElements();
+        this.applySettings();
         this.initializeStartScreen();
+    }
+
+    loadSettings() {
+        const defaults = {
+            benchmarkMode: false,
+            apiEndpoint: 'https://chat.toki1703.net/api/chat/completions',
+            apiKey: '',
+            apiModel: 'gemma3:270m'
+        };
+        try {
+            const saved = JSON.parse(localStorage.getItem('jmmlu-settings') || '{}');
+            return { ...defaults, ...saved };
+        } catch (e) {
+            return defaults;
+        }
+    }
+
+    saveSettings() {
+        try {
+            localStorage.setItem('jmmlu-settings', JSON.stringify(this.settings));
+        } catch (e) {
+            // プライベートブラウジング等で保存できない場合は無視
+        }
+    }
+
+    // 設定値をUIと動作に反映
+    applySettings() {
+        this.benchmarkModeEnabled = this.settings.benchmarkMode;
+        this.benchmarkConfigEl.classList.toggle('is-hidden', !this.settings.benchmarkMode);
+        if (this.llmOutputEl) {
+            this.llmOutputEl.style.display = this.benchmarkModeEnabled ? 'block' : 'none';
+        }
+    }
+
+    openSettings() {
+        // 現在の設定値をフォームに反映
+        this.benchmarkModeEl.checked = this.settings.benchmarkMode;
+        this.apiEndpointEl.value = this.settings.apiEndpoint;
+        this.apiKeyEl.value = this.settings.apiKey;
+        this.apiModelEl.value = this.settings.apiModel;
+        this.applySettings();
+        this.settingsOverlayEl.style.display = 'flex';
+    }
+
+    closeSettings() {
+        this.settingsOverlayEl.style.display = 'none';
     }
 
     initializeElements() {
@@ -154,6 +204,41 @@ class QuizApp {
             this.progressDetailEl = document.getElementById('progress-detail');
             this.paceEl = document.getElementById('pace');
             this.remainingTimeEl = document.getElementById('remaining-time');
+
+        // 設定パネル
+        this.settingsBtnEl = document.getElementById('settings-btn');
+        this.settingsOverlayEl = document.getElementById('settings-overlay');
+        this.settingsCloseEl = document.getElementById('settings-close');
+        this.benchmarkModeEl = document.getElementById('benchmark-mode');
+        this.benchmarkConfigEl = document.getElementById('benchmark-config');
+        this.apiEndpointEl = document.getElementById('api-endpoint');
+        this.apiKeyEl = document.getElementById('api-key');
+        this.apiModelEl = document.getElementById('api-model');
+        this.llmOutputEl = document.getElementById('llm-output');
+
+        this.settingsBtnEl.addEventListener('click', () => this.openSettings());
+        this.settingsCloseEl.addEventListener('click', () => this.closeSettings());
+        this.settingsOverlayEl.addEventListener('click', (e) => {
+            if (e.target === this.settingsOverlayEl) this.closeSettings();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') this.closeSettings();
+        });
+        this.benchmarkModeEl.addEventListener('change', () => {
+            this.settings.benchmarkMode = this.benchmarkModeEl.checked;
+            this.applySettings();
+            this.saveSettings();
+        });
+        [
+            [this.apiEndpointEl, 'apiEndpoint'],
+            [this.apiKeyEl, 'apiKey'],
+            [this.apiModelEl, 'apiModel']
+        ].forEach(([el, key]) => {
+            el.addEventListener('input', () => {
+                this.settings[key] = el.value.trim();
+                this.saveSettings();
+            });
+        });
 
         // Add event listeners
         this.restartBtnEl.addEventListener('click', () => this.restart());
@@ -548,12 +633,16 @@ ${choicesText}
 
 **質問:** ${q.question}
 ${choicesText}`;
-            const llmOutputEl = document.getElementById('llm-output');
+            const llmOutputEl = this.llmOutputEl;
             if (llmOutputEl) llmOutputEl.textContent = '';
-            fetch('https://chat.toki1703.net/api/chat/completions', {
+            const headers = { 'Content-Type': 'application/json' };
+            if (this.settings.apiKey) {
+                headers['Authorization'] = `Bearer ${this.settings.apiKey}`;
+            }
+            fetch(this.settings.apiEndpoint, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' ,'Authorization': 'Bearer sk-135b9377c2524f878a2b59d2cb75b7fa'},
-                body: JSON.stringify({stream: true,model:"gemma3:270m", messages: [{ role: 'user', content: prompt }] })
+                headers,
+                body: JSON.stringify({ stream: true, model: this.settings.apiModel, messages: [{ role: 'user', content: prompt }] })
             })
             .then(async res => {
                 if (!res.body) throw new Error('No response body');

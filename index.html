@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#F6F2FB">
     <title>JMMLU | 4択問題集</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v2">
 </head>
 <body>
     <div class="container">
@@ -14,6 +14,11 @@
             <h5>問題はnlp-waseda/JMMLUより出題<br>
         GPT-3.5：51.98、GPT-4：73.64<br>
         ときくん @toki1703</h5>
+            <button id="settings-btn" class="settings-btn" aria-label="設定">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                </svg>
+            </button>
         </header>
 
         <div id="start-container" class="start-container">
@@ -109,6 +114,39 @@
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <div id="settings-overlay" class="settings-overlay" style="display: none;">
+        <div class="settings-panel" role="dialog" aria-label="設定">
+            <div class="settings-head">
+                <h2>設定</h2>
+                <button id="settings-close" class="settings-close" aria-label="閉じる">✕</button>
+            </div>
+            <div class="settings-body">
+                <label class="switch-row">
+                    <span class="switch-text">
+                        <span class="switch-label">ベンチマークモード</span>
+                        <span class="switch-desc">LLM APIが自動で回答し、出力をリアルタイム表示します</span>
+                    </span>
+                    <input type="checkbox" id="benchmark-mode" class="switch">
+                </label>
+                <div id="benchmark-config" class="benchmark-config">
+                    <div class="settings-field">
+                        <label for="api-endpoint">APIエンドポイント</label>
+                        <input type="url" id="api-endpoint" placeholder="https://chat.toki1703.net/api/chat/completions" autocomplete="off">
+                    </div>
+                    <div class="settings-field">
+                        <label for="api-key">APIキー</label>
+                        <input type="password" id="api-key" placeholder="sk-e6c7dcd7f6674b5bbf51e0e4f4a3170e" autocomplete="off">
+                    </div>
+                    <div class="settings-field">
+                        <label for="api-model">モデル名</label>
+                        <input type="text" id="api-model" placeholder="openai.gpt-5.6-sol" autocomplete="off">
+                    </div>
+                    <p class="settings-note">OpenAI互換のChat Completions API (stream対応) を指定してください。設定はこの端末のみに保存されます。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js?v2"></script>
 </body>
 </html>
