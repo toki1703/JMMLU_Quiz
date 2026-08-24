@@ -170,6 +170,7 @@ class QuizApp {
         this.showStart();
         this.populateSubjectCheckboxes();
         this.config.selectedSubjects = Object.keys(this.subjects); // Default: all subjects selected
+        this.updateQuestionCount();
     }
 
 
@@ -304,7 +305,8 @@ class QuizApp {
             console.log(`選択教科数: ${selectedSubjectEntries.length}`);
             console.log(`教科当たり出題数: ${this.config.questionsPerSubject}`);
             
-            for (const [subjectName, fileName] of selectedSubjectEntries) {
+            // 全教科のCSVを並列で読み込む
+            const results = await Promise.all(selectedSubjectEntries.map(async ([subjectName, fileName]) => {
                 try {
                     const response = await fetch(`questions/${fileName}.csv`);
                     if (response.ok) {
@@ -312,16 +314,23 @@ class QuizApp {
                         const questions = this.parseCSV(csvText, subjectName);
                         // 各教科から指定された問数を取得
                         const selectedQuestions = this.getRandomQuestions(questions, this.config.questionsPerSubject);
-                        allQuestions.push(...selectedQuestions);
-                        loadedCount++;
                         console.log(`${subjectName}: ${selectedQuestions.length}問読み込み成功`);
-                    } else {
-                        failedSubjects.push(`${subjectName} (${response.status})`);
-                        console.warn(`教科 ${subjectName} の読み込みに失敗: ${response.status}`);
+                        return { subjectName, questions: selectedQuestions };
                     }
+                    console.warn(`教科 ${subjectName} の読み込みに失敗: ${response.status}`);
+                    return { subjectName, error: `${response.status}` };
                 } catch (error) {
-                    failedSubjects.push(`${subjectName} (${error.message})`);
                     console.warn(`教科 ${subjectName} の読み込みに失敗しました:`, error);
+                    return { subjectName, error: error.message };
+                }
+            }));
+
+            for (const result of results) {
+                if (result.questions) {
+                    allQuestions.push(...result.questions);
+                    loadedCount++;
+                } else {
+                    failedSubjects.push(`${result.subjectName} (${result.error})`);
                 }
             }
             
