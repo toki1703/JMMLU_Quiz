@@ -600,8 +600,9 @@ class QuizApp {
         // ベンチマークモード（API自動選択）
         if (this.benchmarkModeEnabled) {
             // APIに問題文と選択肢を送信
+            // 選択肢は表示順（シャッフル後）で提示する。これによりLLMの回答記号がそのまま画面上の位置に対応する
             const q = this.questions[this.currentQuestionIndex];
-            const choicesText = ['A', 'B', 'C', 'D'].map(k => `${k}) ${q.choices[k]}`).join('\n');
+            const choicesText = choiceOrder.map(k => `${k}) ${q.choices[choiceMapping[k]]}`).join('\n');
             // prompt = `問題: ${q.question}\n選択肢:\n${choicesText}\n最も適切な選択肢の記号（A/B/C/D）だけを返してください。例えば、選択肢Aが正解なら「A」とだけ答えてください。`;
            let prompt =  `以下の多肢選択問題に答えてください。
 
@@ -648,7 +649,6 @@ ${choicesText}`;
                 if (!res.body) throw new Error('No response body');
                 const reader = res.body.getReader();
                 let received = '';
-                let answer = '';
                 let done = false;
                 while (!done) {
                     const { value, done: doneReading } = await reader.read();
@@ -666,7 +666,11 @@ ${choicesText}`;
                                     if (obj.choices && obj.choices[0] && obj.choices[0].delta && obj.choices[0].delta.content) {
                                         const content = obj.choices[0].delta.content;
                                         received += content;
-                                        if (llmOutputEl) llmOutputEl.textContent += content;
+                                        if (llmOutputEl) {
+                                            // リアルタイムマークダウンプレビュー
+                                            llmOutputEl.innerHTML = this.renderMarkdown(received);
+                                            llmOutputEl.scrollTop = llmOutputEl.scrollHeight;
+                                        }
                                     }
                                 } catch(e) {}
                             }
@@ -674,14 +678,14 @@ ${choicesText}`;
                     }
                 }
                 // 最終的な選択肢記号を抽出
-                // LLMには元の並び（A〜D）で提示しているため、回答記号 = 元の選択肢キー。
-                // シャッフル表示時は、そのキーを表示しているボタン位置を choiceMapping から逆引きする。
-                answer = received.trim().toUpperCase().replace(/[^ABCD]/g, '');
-                const answerKey = ['A', 'B', 'C', 'D'].includes(answer) ? answer : (answer ? answer[0] : '');
+                // LLMには表示順（シャッフル後）で提示しているため、回答記号 = 表示位置のキー。
+                // 採点用の元キーは choiceMapping で引く。
+                const answerKey = this.extractAnswerKey(received);
                 const choiceButtons = this.choicesEl.querySelectorAll('.choice');
                 if (['A', 'B', 'C', 'D'].includes(answerKey)) {
-                    const displayIdx = choiceOrder.findIndex(k => q.choiceMapping[k] === answerKey);
-                    this.selectAnswer(answerKey, choiceButtons[displayIdx]);
+                    const displayIdx = choiceOrder.indexOf(answerKey);
+                    const originalKey = q.choiceMapping[answerKey];
+                    this.selectAnswer(originalKey, choiceButtons[displayIdx]);
                 } else {
                     // 不明な返答ならランダム
                     const randomIdx = Math.floor(Math.random() * 4);
@@ -698,6 +702,98 @@ ${choicesText}`;
             });
             return;
         }
+    }
+
+    // LLMの出力テキストから回答記号（A〜D）を抽出する
+    extractAnswerKey(text) {
+        const t = text.toUpperCase();
+        // 「答え」見出し以降の最初のA〜Dを最優先
+        const ansSection = t.match(/答え[\s\S]*?([ABCD])(?![A-Z])/);
+        if (ansSection) return ansSection[1];
+        // 単独（英単語の一部でない）で現れる最後のA〜D
+        const standalone = [...t.matchAll(/(?:^|[^A-Z])([ABCD])(?![A-Z])/g)];
+        if (standalone.length) return standalone[standalone.length - 1][1];
+        return '';
+    }
+
+    // 軽量マークダウンレンダラー（HTMLエスケープ済み・依存なし）
+    // 見出し・太字・斜体・インラインコード・コードブロック・リストに対応
+    renderMarkdown(md) {
+        const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const inline = s => esc(s)
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+        const lines = md.split('\n');
+        let html = '';
+        let inCode = false;
+        let codeBuf = [];
+        let listType = null; // 'ul' | 'ol'
+        const closeList = () => {
+            if (listType) {
+                html += `</${listType}>`;
+                listType = null;
+            }
+        };
+
+        for (const raw of lines) {
+            if (raw.trimStart().startsWith('```')) {
+                if (inCode) {
+                    html += `<pre><code>${esc(codeBuf.join('\n'))}</code></pre>`;
+                    codeBuf = [];
+                    inCode = false;
+                } else {
+                    closeList();
+                    inCode = true;
+                }
+                continue;
+            }
+            if (inCode) {
+                codeBuf.push(raw);
+                continue;
+            }
+            const line = raw.trim();
+            if (!line) {
+                closeList();
+                continue;
+            }
+            const heading = line.match(/^(#{1,4})\s+(.*)$/);
+            if (heading) {
+                closeList();
+                const level = heading[1].length + 2; // h3〜h6にマップ
+                html += `<h${level}>${inline(heading[2])}</h${level}>`;
+                continue;
+            }
+            const ulItem = line.match(/^[-*+]\s+(.*)$/);
+            if (ulItem) {
+                if (listType !== 'ul') {
+                    closeList();
+                    html += '<ul>';
+                    listType = 'ul';
+                }
+                html += `<li>${inline(ulItem[1])}</li>`;
+                continue;
+            }
+            const olItem = line.match(/^\d+[.)]\s+(.*)$/);
+            if (olItem) {
+                if (listType !== 'ol') {
+                    closeList();
+                    html += '<ol>';
+                    listType = 'ol';
+                }
+                html += `<li>${inline(olItem[1])}</li>`;
+                continue;
+            }
+            closeList();
+            html += `<p>${inline(line)}</p>`;
+        }
+        // ストリーミング途中で閉じられていないコードブロック・リストを処理
+        if (inCode) {
+            html += `<pre><code>${esc(codeBuf.join('\n'))}</code></pre>`;
+        }
+        closeList();
+        return html;
     }
 
     selectAnswer(selectedChoice, buttonEl) {

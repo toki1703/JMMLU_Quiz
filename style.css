@@ -386,15 +386,68 @@ header h5 {
     background: var(--bg2);
     border: 1px solid var(--border);
     border-radius: 12px;
-    padding: 12px;
+    padding: 12px 14px;
     margin: 0 0 16px;
     min-height: 40px;
-    max-height: 180px;
+    max-height: 220px;
     overflow-y: auto;
-    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-    font-size: 0.85rem;
+    font-size: 0.88rem;
+    line-height: 1.7;
     color: var(--txt2);
-    white-space: pre-wrap;
+    overflow-wrap: break-word;
+}
+
+.llm-output p {
+    margin: 0 0 8px;
+}
+
+.llm-output h3,
+.llm-output h4,
+.llm-output h5,
+.llm-output h6 {
+    color: var(--primary);
+    font-size: 0.92rem;
+    font-weight: 700;
+    margin: 10px 0 6px;
+}
+
+.llm-output ul,
+.llm-output ol {
+    margin: 0 0 8px;
+    padding-left: 22px;
+}
+
+.llm-output li {
+    margin-bottom: 3px;
+}
+
+.llm-output strong {
+    color: var(--txt1);
+}
+
+.llm-output code {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 0.82em;
+    background: var(--bg3);
+    border-radius: 4px;
+    padding: 1px 5px;
+}
+
+.llm-output pre {
+    background: var(--bg3);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin: 0 0 8px;
+    overflow-x: auto;
+}
+
+.llm-output pre code {
+    background: none;
+    padding: 0;
+}
+
+.llm-output > :last-child {
+    margin-bottom: 0;
 }
 
 .choices {
