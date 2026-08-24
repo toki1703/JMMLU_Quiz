@@ -585,20 +585,18 @@ ${choicesText}`;
                     }
                 }
                 // 最終的な選択肢記号を抽出
+                // LLMには元の並び（A〜D）で提示しているため、回答記号 = 元の選択肢キー。
+                // シャッフル表示時は、そのキーを表示しているボタン位置を choiceMapping から逆引きする。
                 answer = received.trim().toUpperCase().replace(/[^ABCD]/g, '');
-                let idx = ['A', 'B', 'C', 'D'].indexOf(answer);
-                if (idx === -1) {
-                    // 1文字目だけで判定
-                    idx = ['A', 'B', 'C', 'D'].indexOf(answer[0]);
-                }
+                const answerKey = ['A', 'B', 'C', 'D'].includes(answer) ? answer : (answer ? answer[0] : '');
                 const choiceButtons = this.choicesEl.querySelectorAll('.choice');
-                if (idx >= 0) {
-                    const originalKey = choiceOrder[idx];
-                    this.selectAnswer(originalKey, choiceButtons[idx]);
+                if (['A', 'B', 'C', 'D'].includes(answerKey)) {
+                    const displayIdx = choiceOrder.findIndex(k => q.choiceMapping[k] === answerKey);
+                    this.selectAnswer(answerKey, choiceButtons[displayIdx]);
                 } else {
                     // 不明な返答ならランダム
                     const randomIdx = Math.floor(Math.random() * 4);
-                    const originalKey = choiceOrder[randomIdx];
+                    const originalKey = q.choiceMapping[choiceOrder[randomIdx]];
                     this.selectAnswer(originalKey, choiceButtons[randomIdx]);
                 }
             })
@@ -606,7 +604,7 @@ ${choicesText}`;
                 // 通信エラー時はランダム
                 const randomIdx = Math.floor(Math.random() * 4);
                 const choiceButtons = this.choicesEl.querySelectorAll('.choice');
-                const originalKey = choiceOrder[randomIdx];
+                const originalKey = q.choiceMapping[choiceOrder[randomIdx]];
                 this.selectAnswer(originalKey, choiceButtons[randomIdx]);
             });
             return;
@@ -952,5 +950,5 @@ ${choicesText}`;
 
 // Initialize the quiz app when the page loads
 document.addEventListener('DOMContentLoaded', () => {
-    new QuizApp();
+    window.quizApp = new QuizApp();
 });
