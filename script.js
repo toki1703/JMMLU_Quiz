@@ -124,8 +124,8 @@ class QuizApp {
         const defaults = {
             benchmarkMode: false,
             apiEndpoint: 'https://chat.toki1703.net/api/chat/completions',
-            apiKey: '',
-            apiModel: 'gemma3:270m'
+            apiKey: 'sk-e6c7dcd7f6674b5bbf51e0e4f4a3170e',
+            apiModel: 'openai.gpt-5.6-sol'
         };
         try {
             const saved = JSON.parse(localStorage.getItem('jmmlu-settings') || '{}');
